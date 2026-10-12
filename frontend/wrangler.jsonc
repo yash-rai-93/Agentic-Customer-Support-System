@@ -3,14 +3,14 @@
 // docs/DEPLOY.md. Security headers and caching live in public/_headers.
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "acme-support-ui",
+  "name": "agentic-customer-support-system",
   "compatibility_date": "2026-10-01",
   "assets": {
     "directory": "./dist",
     // Client-side routes (/chat, /console) get index.html.
     "not_found_handling": "single-page-application"
   },
-  // Publish at https://acme-support-ui.<your-account-subdomain>.workers.dev.
+  // Publish at https://agentic-customer-support-system.<your-account-subdomain>.workers.dev.
   "workers_dev": true,
   "preview_urls": false
 }

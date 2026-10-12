@@ -153,7 +153,7 @@ at the Cloud Run API; the Docker/nginx build still uses same-origin `/api`.
 1. Set `VITE_API_BASE_URL` in `frontend/.env.cloudflare` to your Cloud Run URL.
    Leave `workers_dev: true` in `frontend/wrangler.jsonc` with no custom-domain
    routes.
-2. In Cloudflare Workers & Pages, connect a Worker named `acme-support-ui` to
+2. In Cloudflare Workers & Pages, connect a Worker named `agentic-customer-support-system` to
    this repository with Workers Builds. Set:
    - **Repository:** this repo, branch `main`
    - **Root directory:** `frontend`
@@ -161,7 +161,7 @@ at the Cloud Run API; the Docker/nginx build still uses same-origin `/api`.
    - **Deploy command:** `npx wrangler deploy`
 
    Cloudflare provisions an account subdomain if you do not have one. The URL
-   will be `https://acme-support-ui.<your-account-subdomain>.workers.dev`.
+   will be `https://agentic-customer-support-system.<your-account-subdomain>.workers.dev`.
 3. Put that exact UI origin (no trailing slash) in the GitHub repository
    variable `DEMO_CORS_ORIGINS`, then rerun **Deploy backend (Cloud Run)**.
    Check that the app creates a demo session and sends a chat message.
