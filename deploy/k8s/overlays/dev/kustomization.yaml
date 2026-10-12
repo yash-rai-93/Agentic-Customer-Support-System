@@ -14,7 +14,7 @@ resources:
 images:
   # Resources added in this overlay (seed-job) need the mapping too.
   - name: acme-backend
-    newName: ghcr.io/likhithv02/customer-support-agent-backend
+    newName: ghcr.io/yash-rai-93/agentic-customer-support-system-backend
     newTag: latest
 secretGenerator:
   - name: acme-backend-secrets

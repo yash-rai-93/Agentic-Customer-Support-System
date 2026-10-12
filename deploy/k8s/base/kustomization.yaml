@@ -18,8 +18,8 @@ resources:
   - networkpolicy.yaml
 images:
   - name: acme-backend
-    newName: ghcr.io/likhithv02/customer-support-agent-backend
+    newName: ghcr.io/yash-rai-93/agentic-customer-support-system-backend
     newTag: latest
   - name: acme-frontend
-    newName: ghcr.io/likhithv02/customer-support-agent-frontend
+    newName: ghcr.io/yash-rai-93/agentic-customer-support-system-frontend
     newTag: latest

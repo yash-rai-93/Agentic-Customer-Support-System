@@ -322,7 +322,7 @@ jobs:
           context: ${{ matrix.context }}
           push: ${{ github.event_name == 'push' }}
           tags: |
-            ghcr.io/likhithv02/customer-support-agent-${{ matrix.name }}:${{ github.sha }}
-            ghcr.io/likhithv02/customer-support-agent-${{ matrix.name }}:latest
+            ghcr.io/yash-rai-93/agentic-customer-support-system-${{ matrix.name }}:${{ github.sha }}
+            ghcr.io/yash-rai-93/agentic-customer-support-system-${{ matrix.name }}:latest
           cache-from: type=gha,scope=${{ matrix.name }}
           cache-to: type=gha,mode=max,scope=${{ matrix.name }}

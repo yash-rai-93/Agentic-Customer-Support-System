@@ -24,8 +24,8 @@ generatorOptions:
   disableNameSuffixHash: true
 images:
   - name: acme-backend
-    newName: ghcr.io/likhithv02/customer-support-agent-backend
+    newName: ghcr.io/yash-rai-93/agentic-customer-support-system-backend
     newTag: latest
   - name: acme-loadtest
-    newName: ghcr.io/likhithv02/customer-support-agent-loadtest
+    newName: ghcr.io/yash-rai-93/agentic-customer-support-system-loadtest
     newTag: latest

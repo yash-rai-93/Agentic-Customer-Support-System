@@ -10,9 +10,9 @@ resources:
   - namespace.yaml
   - ../../base
 images:
-  - name: ghcr.io/likhithv02/customer-support-agent-backend
+  - name: ghcr.io/yash-rai-93/agentic-customer-support-system-backend
     newTag: latest # pin to an immutable tag or digest per release
-  - name: ghcr.io/likhithv02/customer-support-agent-frontend
+  - name: ghcr.io/yash-rai-93/agentic-customer-support-system-frontend
     newTag: latest
 patches:
   - target: { kind: Ingress, name: acme-support }
