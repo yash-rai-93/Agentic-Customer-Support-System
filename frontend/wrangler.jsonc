@@ -10,14 +10,7 @@
     // Client-side routes (/chat, /console) get index.html.
     "not_found_handling": "single-page-application"
   },
-  "routes": [
-    // The custom domain provisions DNS and the certificate.
-    { "pattern": "refund-agent.likhithv.com", "custom_domain": true },
-    // likhithv.com's portfolio Worker has a `*.likhithv.com/*` route, and zone
-    // routes run before a custom domain's Worker. This more specific route
-    // wins over that wildcard.
-    { "pattern": "refund-agent.likhithv.com/*", "zone_name": "likhithv.com" }
-  ],
-  "workers_dev": false,
+  // Publish at https://acme-support-ui.<your-account-subdomain>.workers.dev.
+  "workers_dev": true,
   "preview_urls": false
 }
