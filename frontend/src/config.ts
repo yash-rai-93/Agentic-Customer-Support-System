@@ -7,7 +7,7 @@
 const env = import.meta.env;
 
 export const API_BASE = (env.VITE_API_BASE_URL ?? "").replace(/\/+$/, "");
-export const LANDING_URL = env.VITE_LANDING_URL || "https://likhithv02.github.io/Customer-Support-Agent/";
-export const REPO_URL = env.VITE_REPO_URL || "https://github.com/LikhithV02/Customer-Support-Agent";
+export const LANDING_URL = env.VITE_LANDING_URL || "https://yash-rai-93.github.io/Agentic-Customer-Support-System/";
+export const REPO_URL = env.VITE_REPO_URL || "https://github.com/yash-rai-93/Agentic-Customer-Support-System";
 
 export const apiUrl = (path: string) => `${API_BASE}${path}`;
