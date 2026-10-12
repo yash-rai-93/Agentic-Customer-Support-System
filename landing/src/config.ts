@@ -6,11 +6,11 @@ export const APP_URL = import.meta.env.VITE_APP_URL || "";
 /** Backend origin, pinged on page load so a scaled-to-zero instance wakes up early. */
 export const API_URL = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/+$/, "");
 
-export const REPO_URL = "https://github.com/LikhithV02/Customer-Support-Agent";
+export const REPO_URL = "https://github.com/yash-rai-93/Agentic-Customer-Support-System";
 
 export const AUTHOR = {
-  name: "LikhithV02", // your name as it should appear in the footer
-  github: "https://github.com/LikhithV02",
+  name: "Yash",
+  github: "https://github.com/yash-rai-93",
   linkedin: "", // e.g. https://www.linkedin.com/in/<you>
   email: "", // shown as a mailto link when set
 };

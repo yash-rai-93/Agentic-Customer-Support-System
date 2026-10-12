@@ -5,6 +5,6 @@ import { defineConfig } from "vite";
 // the repo path as their base. Override with LANDING_BASE (e.g. "/" for a
 // custom domain).
 export default defineConfig({
-  base: process.env.LANDING_BASE ?? "/Customer-Support-Agent/",
+  base: process.env.LANDING_BASE ?? "/Agentic-Customer-Support-System/",
   plugins: [react()],
 });

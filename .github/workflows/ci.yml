@@ -152,7 +152,7 @@ jobs:
       - run: npm ci
       - run: npm run build
       - name: Assets resolve under the GitHub Pages base path
-        run: grep -q '/Customer-Support-Agent/assets/' dist/index.html
+        run: grep -q '/Agentic-Customer-Support-System/assets/' dist/index.html
 
   demo-container:
     # The backend image exactly as Cloud Run runs it: $PORT, ENV=prod,
