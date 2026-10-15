@@ -339,4 +339,4 @@ This application demonstrates refund decisions against a synthetic CRM and ledge
 
 The public Cloud Run service can scale to zero, so an idle instance may take a few seconds to wake. The landing page sends a liveness request while visitors browse. The configured fallback and demo budgets can cause some turns to use the scripted model.
 
-**Maintained and deployed by [Yash](https://github.com/yash-rai-93).** Built from the [Customer-Support-Agent reference repository](https://github.com/LikhithV02/Customer-Support-Agent), with permission to deploy. Recorded evaluation and load-test evidence is linked to its committed source throughout this README.
+**Maintained and deployed by [Yash](https://github.com/yash-rai-93).**
