@@ -114,6 +114,21 @@ were not contacted for testing, including demo session creation.
 
 ## Tests and validation
 
+The table below records the local-only checkpoint. After branch publication,
+the first [CI run](https://github.com/yash-rai-93/Agentic-Customer-Support-System/actions/runs/38787290110)
+passed Ruff, **130 tests with 1 skipped on SQLite**, **130 tests with 1 skipped
+on PostgreSQL/Redis**, PostgreSQL migration upgrade/drift checks, both app builds,
+the scripted eval gate, Kubernetes validation, and the demo-container smoke.
+Its Wrangler dry run exposed Node 20 incompatibility; the frontend test job is
+updated to Node 22. The install logs also reported dependency advisories, so
+detailed non-blocking audits were added for review.
+
+Follow-up CI adds migration round trips on SQLite and PostgreSQL and renders
+desktop/mobile UI screenshots with local build artifacts. Its browser requests
+are restricted to loopback servers, with API metadata mocked, so the rendering
+check cannot call the production API. These new checks require their own CI
+result before sign-off.
+
 | Check | Result and limits |
 |---|---|
 | Python AST syntax | PASS: all 53 backend Python files parse |
@@ -214,6 +229,8 @@ Generated from the local working diff before the review commit:
 
 | Change | File |
 |---|---|
+| Modified | `.gitignore` |
+| Added | `frontend/tests/ui-smoke.mjs` |
 | Modified | `.env.example` |
 | Modified | `.github/workflows/ci.yml` |
 | Modified | `README.md` |

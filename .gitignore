@@ -8,6 +8,7 @@ backend/var/
 frontend/node_modules/
 frontend/dist/
 frontend/dist-cross-origin/
+ui-artifacts/
 landing/node_modules/
 landing/dist/
 loadtest/results/
