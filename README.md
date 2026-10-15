@@ -5,7 +5,7 @@
 [![CI](https://github.com/yash-rai-93/Agentic-Customer-Support-System/actions/workflows/ci.yml/badge.svg)](https://github.com/yash-rai-93/Agentic-Customer-Support-System/actions/workflows/ci.yml)
 [![Backend deployment](https://github.com/yash-rai-93/Agentic-Customer-Support-System/actions/workflows/deploy-cloudrun.yml/badge.svg)](https://github.com/yash-rai-93/Agentic-Customer-Support-System/actions/workflows/deploy-cloudrun.yml)
 [![Landing deployment](https://github.com/yash-rai-93/Agentic-Customer-Support-System/actions/workflows/pages.yml/badge.svg)](https://github.com/yash-rai-93/Agentic-Customer-Support-System/actions/workflows/pages.yml)
-[![Red team (promptfoo)](https://github.com/yash-rai-93/Agentic-Customer-Support-System/actions/workflows/redteam.yml/badge.svg)](https://github.com/yash-rai-93/Agentic-Customer-Support-System/actions/workflows/redteam.yml)
+
 
 **[Try the live app](https://agentic-customer-support-system.yashrai4426.workers.dev)** · **[Explore the project](https://yash-rai-93.github.io/Agentic-Customer-Support-System/)** · [Deployment guide](docs/DEPLOY.md) · [API health](https://acme-support-api-dvvvtwzzvq-as.a.run.app/api/health/ready)
 
