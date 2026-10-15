@@ -12,5 +12,8 @@
   },
   // Publish at https://agentic-customer-support-system.<your-account-subdomain>.workers.dev.
   "workers_dev": true,
-  "preview_urls": false
+  "preview_urls": false,
+  // Workers Builds uses this only for PR previews. Production settings above
+  // remain unchanged. Preview builds need a staging API origin (docs/DEPLOY.md).
+  "previews": {}
 }

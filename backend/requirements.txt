@@ -10,6 +10,7 @@ pyjwt[crypto]==2.10.1
 pydantic==2.13.5
 pydantic-settings==2.15.0
 python-dotenv==1.0.1
+PyYAML==6.0.2
 langgraph==1.2.12
 langchain-core==1.6.5
 langchain-anthropic==1.7.4

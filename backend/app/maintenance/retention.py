@@ -10,7 +10,10 @@ dangling by design.
 
 `--demo-hours N` additionally removes public-demo sandboxes (customers with
 the `DM-` prefix, see `app/demo.py`) older than N hours, including their
-orders and refunds: those are synthetic, not financial records.
+orders and refunds: those are synthetic, not financial records. Each sandbox's
+conversations are first copied into `conversation_archive` (with a breach
+check, see `app/maintenance/archive.py`) in the same transaction, and archive
+rows are themselves deleted after RETENTION_DAYS.
 """
 
 from __future__ import annotations
@@ -19,31 +22,52 @@ import argparse
 import asyncio
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 
 from app.config import get_settings
 from app.db import session as db
-from app.db.models import Conversation, Customer, Message, Order, ReasoningEvent, Refund
+from app.db.models import (
+    Conversation,
+    ConversationArchive,
+    Customer,
+    Message,
+    Order,
+    ReasoningEvent,
+    Refund,
+)
 from app.demo import DEMO_PREFIX
+from app.maintenance.archive import archive, archive_conversations
 
 BATCH = 500
 
 
 async def purge(days: int, dry_run: bool = False) -> int:
+    if days <= 0:
+        raise ValueError("retention days must be positive")
     cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    if dry_run:
+        async with db.SessionLocal() as session:
+            return await session.scalar(
+                select(func.count()).select_from(Conversation)
+                .where(Conversation.created_at < cutoff)
+            )
     total = 0
     while True:
         async with db.SessionLocal() as session:
-            ids = (
+            convs = (
                 await session.scalars(
-                    select(Conversation.id).where(Conversation.created_at < cutoff).limit(BATCH)
+                    select(Conversation).where(Conversation.created_at < cutoff)
+                    .limit(BATCH).with_for_update(skip_locked=True)
                 )
             ).all()
+            ids = [c.id for c in convs]
             if not ids:
                 break
             total += len(ids)
-            if dry_run:
-                break
+            # --demo-hours 0 and custom retention windows must not bypass archival.
+            await archive_conversations(
+                session, [c for c in convs if (c.customer_id or "").startswith(DEMO_PREFIX)]
+            )
             await session.execute(delete(ReasoningEvent).where(ReasoningEvent.conversation_id.in_(ids)))
             await session.execute(delete(Message).where(Message.conversation_id.in_(ids)))
             await session.execute(delete(Conversation).where(Conversation.id.in_(ids)))
@@ -51,9 +75,40 @@ async def purge(days: int, dry_run: bool = False) -> int:
     return total
 
 
-async def purge_demo(hours: int, dry_run: bool = False) -> int:
+async def purge_archive(days: int, dry_run: bool = False) -> int:
+    if days <= 0:
+        raise ValueError("archive retention days must be positive")
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    async with db.SessionLocal() as session:
+        count = await session.scalar(
+            select(func.count()).select_from(ConversationArchive)
+            .where(ConversationArchive.archived_at < cutoff)
+        )
+        if count and not dry_run:
+            await session.execute(
+                delete(ConversationArchive).where(ConversationArchive.archived_at < cutoff)
+            )
+            await session.commit()
+    return count
+
+
+async def purge_demo(hours: int, dry_run: bool = False) -> tuple[int, int, int]:
+    """Archive, then delete, demo sandboxes older than `hours`.
+
+    Returns (sandboxes, conversations archived, conversations with a breach).
+    """
+    if hours <= 0:
+        raise ValueError("demo retention hours must be positive")
     cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
-    total = 0
+    if dry_run:
+        async with db.SessionLocal() as session:
+            count = await session.scalar(
+                select(func.count()).select_from(Customer).where(
+                    Customer.id.like(f"{DEMO_PREFIX}%"), Customer.created_at < cutoff
+                )
+            )
+        return count, 0, 0
+    total = archived = breached = 0
     while True:
         async with db.SessionLocal() as session:
             cids = (
@@ -61,13 +116,15 @@ async def purge_demo(hours: int, dry_run: bool = False) -> int:
                     select(Customer.id)
                     .where(Customer.id.like(f"{DEMO_PREFIX}%"), Customer.created_at < cutoff)
                     .limit(BATCH)
+                    .with_for_update(skip_locked=True)
                 )
             ).all()
             if not cids:
                 break
             total += len(cids)
-            if dry_run:
-                break
+            records = await archive(session, list(cids))
+            archived += len(records)
+            breached += sum(1 for r in records if r["breach"])
             convs = select(Conversation.id).where(Conversation.customer_id.in_(cids))
             orders = select(Order.id).where(Order.customer_id.in_(cids))
             await session.execute(delete(ReasoningEvent).where(ReasoningEvent.conversation_id.in_(convs)))
@@ -77,7 +134,7 @@ async def purge_demo(hours: int, dry_run: bool = False) -> int:
             await session.execute(delete(Order).where(Order.customer_id.in_(cids)))
             await session.execute(delete(Customer).where(Customer.id.in_(cids)))
             await session.commit()
-    return total
+    return total, archived, breached
 
 
 def main() -> None:
@@ -92,18 +149,27 @@ def main() -> None:
     )
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
+    if args.days <= 0 or args.demo_hours < 0:
+        parser.error("--days must be positive; --demo-hours must be zero or positive")
 
-    async def run() -> tuple[int, int]:
-        demo = await purge_demo(args.demo_hours, args.dry_run) if args.demo_hours else 0
-        convs = await purge(args.days, args.dry_run)
-        await db.dispose()
-        return convs, demo
+    async def run() -> tuple[int, tuple[int, int, int], int]:
+        try:
+            demo = await purge_demo(args.demo_hours, args.dry_run) if args.demo_hours else (0, 0, 0)
+            convs = await purge(args.days, args.dry_run)
+            archived = await purge_archive(args.days, args.dry_run)
+            return convs, demo, archived
+        finally:
+            await db.dispose()
 
-    convs, demo = asyncio.run(run())
+    convs, (sandboxes, archived, breached), expired = asyncio.run(run())
     verb = "would delete" if args.dry_run else "deleted"
     print(f"retention: {verb} {convs} conversations older than {args.days} days")
     if args.demo_hours:
-        print(f"retention: {verb} {demo} demo sandboxes older than {args.demo_hours} hours")
+        print(
+            f"retention: {verb} {sandboxes} demo sandboxes older than {args.demo_hours} hours "
+            f"(archived {archived} conversations, {breached} with a breach)"
+        )
+    print(f"retention: {verb} {expired} archived conversations older than {args.days} days")
 
 
 if __name__ == "__main__":

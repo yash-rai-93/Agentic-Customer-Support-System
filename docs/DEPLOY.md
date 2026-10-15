@@ -1,7 +1,7 @@
 # Deploying the public demo
 
 The showcase deployment has three parts, each hosted where it fits best and all
-on free tiers:
+with provider-specific usage limits and billing:
 
 ```
  GitHub Pages                   Cloudflare                    Google Cloud Run
@@ -22,10 +22,9 @@ on free tiers:
 | Postgres | Neon (free) | Managed, serverless Postgres |
 | Redis | Upstash (free) | Managed Redis over TLS; supports the pub/sub the admin live view uses |
 
-Serverless functions (Cloudflare Workers, Vercel) aren't used for the backend:
-they can't keep a turn's SSE stream open for long, and the backend needs
-long-lived Postgres and Redis pools. Cloud Run runs the same container that Kubernetes runs
-([PRODUCTION.md](PRODUCTION.md)).
+Cloudflare serves the static UI. The Python API stays on Cloud Run, using
+the existing container, SSE endpoints, PostgreSQL pool, and Redis client.
+Kubernetes deployment assets remain available in [PRODUCTION.md](PRODUCTION.md).
 
 ---
 
@@ -49,9 +48,11 @@ anonymous visitors:
   demo has `DEMO_GLOBAL_DAILY_TOKEN_BUDGET` per UTC day. When either is spent,
   turns **run on the scripted model** instead of being refused. The UI shows a
   notice and the guardrails behave identically. `LLM_FALLBACK_PROVIDER=fake`
-  does the same when Anthropic errors, so the demo keeps working.
+  does the same when the selected real provider errors, so the demo keeps working.
 - **Cleanup.** The retention job (`--demo-hours 24`) deletes sandboxes older than
-  a day, together with their orders, refunds and transcripts.
+  a day, together with their synthetic orders and refunds. Conversations are
+  archived first in the same transaction and expire after `RETENTION_DAYS`
+  days from archival. See [demo triage](DEMO_TRIAGE.md).
 - **Optional bot check.** Set `TURNSTILE_SECRET` and the backend requires a
   Cloudflare Turnstile token on session creation. Rendering the widget in
   `frontend/src/pages/Welcome.tsx` is left to you: add it if bots show up.
@@ -187,28 +188,25 @@ for your name, LinkedIn and email. Refresh the screenshots in
 
 ---
 
-## Costs
+## Usage and cost controls
 
-| Item | Free-tier headroom | Notes |
-|---|---|---|
-| Cloud Run | 2M requests, 180k vCPU-s, 360k GiB-s per month | Request-based billing; `maxScale: 3` caps spend |
-| Neon | 0.5 GB storage | Sandboxes are purged daily |
-| Upstash | 500k commands/month | Roughly 20 commands per chat turn |
-| Cloudflare Workers static assets / GitHub Pages | Free | Static asset requests are free and unlimited |
-| **Anthropic** | Pay per token | **The only real cost.** See below |
+The current deployment selects Gemini with a scripted fallback. Model calls,
+compute, archive storage, Redis commands, and other hosted services are subject
+to each account's current limits and billing. Check the provider dashboards;
+the demo is not guaranteed to stay within a free allowance.
 
-The LLM budget is the number to watch. A turn uses about 2–4 model calls of
-about 1–4k input tokens each. Prompt caching covers the system prompt and tools.
-With `DEMO_GLOBAL_DAILY_TOKEN_BUDGET=1500000`, the worst case is on the order of
-$5/day at Sonnet-class pricing; typical recruiter traffic uses a small fraction.
-Past the cap, the demo keeps running on the scripted model. As a hard backstop,
-also set a **monthly spend limit** in the Anthropic console.
+`DEMO_GLOBAL_DAILY_TOKEN_BUDGET` and the per-customer budgets cap real-model
+usage in the application. Past the configured cap, the demo uses the scripted
+model. Provider pricing and token mix determine the monetary cost; these token
+budgets are not a currency-denominated spending limit. Set appropriate account
+budgets and alerts separately. Archive retention also increases PostgreSQL
+storage needs compared with deleting every transcript at sandbox reset.
 
 **Cold starts.** With `minScale: 0` the first request after idle waits a few
 seconds while an instance starts. The landing page pings the API when it loads,
 so the instance is usually warm by the time a visitor clicks through, and the
 app shows a "waking up" screen otherwise. Set `minScale: "1"` in
-`deploy/cloudrun/service.yaml` (about $10/month) to remove cold starts entirely.
+`deploy/cloudrun/service.yaml` to keep an instance warm, with additional compute usage.
 
 ---
 
@@ -219,14 +217,45 @@ app shows a "waking up" screen otherwise. Set `minScale: "1"` in
   URL is public.
 - **Logs:** Cloud Run → service → Logs. The logs are structured JSON with
   `request_id`, `conversation_id` and `customer_id`.
-- **Rotate the Anthropic key:**
-  `printf %s "$NEW_KEY" | gcloud secrets versions add acme-anthropic-api-key --data-file -`,
+- **Rotate the Gemini key:**
+  `printf %s "$NEW_KEY" | gcloud secrets versions add acme-gemini-api-key --data-file -`,
   then redeploy. The secret is pinned to `latest` at revision creation.
 - **Turn the real LLM off** (for example after a traffic spike): set
-  `LLM_PROVIDER=fake` in `service.yaml` and redeploy, or set the global budget
+  `DEMO_LLM_PROVIDER=fake` in repository variables and redeploy after approval, or set the global budget
   to `1`.
-- **Wipe all sandboxes now:**
-  `gcloud run jobs execute acme-support-api-cleanup --region $REGION --args="-m,app.maintenance.retention,--demo-hours,0"`.
+- **Review cleanup:** `--demo-hours 0` disables sandbox cleanup; it does not
+  wipe sandboxes. Use `python -m app.maintenance.retention --demo-hours 24 --dry-run`
+  against the intended database before an authorized cleanup run.
+
+## Cloudflare PR previews
+
+`frontend/wrangler.jsonc` includes the preview-only `previews` block required by
+Workers Builds. The production Worker name, assets directory, SPA routing,
+`workers_dev`, and `preview_urls` settings retain their existing values.
+Adding this block does not publish a preview or change production.
+
+Before enabling non-production branch builds in Cloudflare:
+
+1. Configure a separate staging backend/database and synthetic data.
+2. Set the existing `VITE_API_BASE_URL` variable to the staging API origin in
+   **non-production** build settings. Build with `npm ci && npm run build`
+   there; avoid `build:cloudflare`, which intentionally loads the existing
+   production API URL from `.env.cloudflare`.
+3. Allow only the intended preview origins in staging `CORS_ORIGINS`. Do not
+   weaken production CORS or expose backend secrets in Vite variables.
+4. Use Workers Builds' non-production preview command and confirm the resulting
+   preview stays separate from the production Worker deployment.
+
+For a local configuration check, build frontend assets, then run
+`npx wrangler deploy --dry-run --outdir wrangler-dry-run`; this validates without
+uploading. CI includes this check. A Worker preview is frontend hosting only;
+it does not automatically isolate API data or model spend.
+
+## Reviewing what people tried
+
+The operator CLI supports `list`, `show`, `scan`, and `export` over archived or
+still-live demo conversations. See [Demo archives and attack triage](DEMO_TRIAGE.md)
+for commands, finding definitions, privacy limits, tests, and release ordering.
 
 ## Screenshots
 
