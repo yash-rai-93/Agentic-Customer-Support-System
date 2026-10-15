@@ -1,0 +1,90 @@
+name: Publish v1.1.0 release
+
+# Release metadata lives on this dedicated branch. The tag points to the
+# tested application commit on main; this workflow never updates main.
+on:
+  push:
+    branches: [release/v1.1.0]
+    paths:
+      - .github/releases/v1.1.0.json
+      - .github/workflows/publish-release.yml
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: publish-v1.1.0
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == 'yash-rai-93/Agentic-Customer-Support-System'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify tested commit and publish tag and release
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const expectedRepo = 'yash-rai-93/Agentic-Customer-Support-System';
+            if (owner + '/' + repo !== expectedRepo || context.ref !== 'refs/heads/release/v1.1.0') {
+              throw new Error('Unexpected release repository or branch');
+            }
+            const file = await github.rest.repos.getContent({
+              owner, repo, path: '.github/releases/v1.1.0.json', ref: context.sha
+            });
+            const release = JSON.parse(Buffer.from(file.data.content, 'base64').toString('utf8'));
+            if (release.tag_name !== 'v1.1.0' ||
+                release.target_commitish !== '1f58670d50dcb370040153c5fffd57b8734dd0ae' ||
+                !release.name || !release.body) {
+              throw new Error('Invalid release metadata');
+            }
+            const main = await github.rest.git.getRef({ owner, repo, ref: 'heads/main' });
+            if (main.data.object.sha !== release.target_commitish) {
+              throw new Error('Main moved; review the intended release commit before publishing');
+            }
+            const runs = await github.rest.actions.listWorkflowRunsForRepo({
+              owner, repo, branch: 'main', head_sha: release.target_commitish, per_page: 100
+            });
+            for (const name of ['CI', 'Deploy backend (Cloud Run)', 'Deploy landing page (GitHub Pages)']) {
+              if (!runs.data.workflow_runs.some(run => run.name === name &&
+                  run.head_sha === release.target_commitish && run.conclusion === 'success')) {
+                throw new Error('Missing successful release check: ' + name);
+              }
+            }
+            let tag;
+            try {
+              tag = await github.rest.git.getRef({ owner, repo, ref: 'tags/' + release.tag_name });
+            } catch (error) {
+              if (error.status !== 404) throw error;
+            }
+            if (tag && (tag.data.object.type !== 'commit' || tag.data.object.sha !== release.target_commitish)) {
+              throw new Error('Existing tag points to a different object; refusing to move it');
+            }
+            if (!tag) {
+              await github.rest.git.createRef({
+                owner, repo, ref: 'refs/tags/' + release.tag_name, sha: release.target_commitish
+              });
+            }
+            let published;
+            try {
+              published = await github.rest.repos.getReleaseByTag({ owner, repo, tag: release.tag_name });
+            } catch (error) {
+              if (error.status !== 404) throw error;
+            }
+            if (published) {
+              if (published.data.draft || published.data.prerelease ||
+                  published.data.name !== release.name || published.data.body !== release.body) {
+                throw new Error('Release already exists with different metadata; refusing to overwrite it');
+              }
+            } else {
+              published = await github.rest.repos.createRelease({
+                owner, repo, tag_name: release.tag_name, target_commitish: release.target_commitish,
+                name: release.name, body: release.body, draft: false, prerelease: false, make_latest: 'true'
+              });
+            }
+            core.notice('Published ' + published.data.html_url);
+            await core.summary.addHeading('Release published')
+              .addLink(release.name, published.data.html_url)
+              .addRaw('\n\nTarget commit: ' + release.target_commitish).write();
